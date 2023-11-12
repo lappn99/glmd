@@ -27,21 +27,20 @@ typedef struct
 } GLMD;
 
 
-const size_t FUNC_HASH_CAPACITY = 16;
 
 int hashKeyExists(size_t);
 void* hashGetValue(size_t);
 void hashSetValue(size_t, void*);
 size_t hashCalculate(const char*);
 
-VertexBuffer createVertexBuffer(size_t initialSize);
+VertexBuffer createVertexBuffer(size_t);
 
 static GLMD glmd;
 
 void 
 glmdInit(void)
 {
-    memset(glmd.funcCache.funcArray,0,sizeof(void*) * FUNC_HASH_CAPACITY);
+    memset(glmd.funcCache.funcArray,0,sizeof(void*) * GLMD_FUNC_HASH_CAPACITY);
     glmd.gl.initialized = 0;
     
 }

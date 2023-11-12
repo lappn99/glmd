@@ -1,6 +1,6 @@
 CC=gcc
 CCFLAGS=-c -Wall -Werror -fpic -Bsymbolic -ggdb
-LIBS=-ldl -lGLEW
+LIBS=-ldl
 build: glmd.so
 
 %.o : %.c
