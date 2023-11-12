@@ -24,8 +24,12 @@ clean:
 
 
 example: build example.c
-	${CC} -lglfw -o $@ example.c -ggdb
+	${CC} -lglut -lGL -o $@ example.c -ggdb
 
-test: build
+test: build example
+	LD_PRELOAD=${PWD}/glmd.so ./example
+
+gears: build
 	LD_PRELOAD=${PWD}/glmd.so glxgears
+
 

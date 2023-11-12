@@ -18,8 +18,14 @@ extern Bool
 glXMakeCurrent(Display* dsp, GLXDrawable draw, GLXContext ctx)
 {
     _glXMakeCurrentFunc newFunc = glmdGetFuncAddr("glXMakeCurrent");
-    glmdMakeContextCurrent();
-    return newFunc(dsp,draw,ctx);
+   
+    Bool result = newFunc(dsp,draw,ctx);
+    if(result) 
+    {
+        glmdMakeContextCurrent();
+    }
+    return result;
+    
 
 }
 
@@ -28,8 +34,13 @@ glXMakeContextCurrent(Display* dsp, GLXDrawable draw,GLXDrawable read, GLXContex
 {
     
     _glXMakeContextCurrentFunc newFunc = glmdGetFuncAddr("glXMakeContextCurrent");
-    glmdMakeContextCurrent();
-    return newFunc(dsp,read,draw,ctx);
+    Bool result = newFunc(dsp,read,draw,ctx);
+    if(result)
+    {
+        glmdMakeContextCurrent();
+    }
+   
+    return result;
 
 }
 

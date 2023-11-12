@@ -6,8 +6,10 @@
 
 typedef struct GL
 {   
+    int initialized;
     PFNGLBINDBUFFERPROC glBindBuffer;
     PFNGLGENBUFFERSPROC glGenBuffers;
+    PFNGLBUFFERDATAPROC glBufferData;
 
 
 } GL;

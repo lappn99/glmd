@@ -6,17 +6,23 @@
 #include "glmd.h"
 #include "glmdgl.h"
 
-typedef struct FunctionAddrTable
+typedef struct
 {
     size_t tableSize;
     void* funcArray[GLMD_FUNC_HASH_CAPACITY];
 } FunctionAddrTable;
 
-typedef struct GLMD
+typedef struct 
+{
+    GLuint name;
+    size_t size;
+    size_t capacity;
+} VertexBuffer;
+
+typedef struct
 {
     GL gl;
-
-    GLuint defaultVBO;
+    VertexBuffer defaultVBO;
     FunctionAddrTable funcCache;
 } GLMD;
 
@@ -28,15 +34,16 @@ void* hashGetValue(size_t);
 void hashSetValue(size_t, void*);
 size_t hashCalculate(const char*);
 
+VertexBuffer createVertexBuffer(size_t initialSize);
+
 static GLMD glmd;
 
 void 
 glmdInit(void)
 {
     memset(glmd.funcCache.funcArray,0,sizeof(void*) * FUNC_HASH_CAPACITY);
-    glmdInitGL(&glmd.gl);
-    glmd.gl.glGenBuffers(1,&glmd.defaultVBO);
-    fprintf(stderr,"GLMD: Created Default VBO: %d\n",glmd.defaultVBO);
+    glmd.gl.initialized = 0;
+    
 }
 
 void
@@ -49,7 +56,14 @@ glmdCreateContext(void)
 void 
 glmdMakeContextCurrent(void)
 {
-    fprintf(stderr,"GLMD Make Context current\n");
+    if(!glmd.gl.initialized)
+    {
+        fprintf(stderr,"GLMD: Initializing GLMD OpenGL\n");
+        glmdInitGL(&glmd.gl);
+        glmd.defaultVBO = createVertexBuffer(3);
+        glmd.gl.initialized = 1;
+    }
+
 }
 
 void*
@@ -68,6 +82,12 @@ glmdGetFuncAddr(const char* name)
         func = hashGetValue(hash);
     }
     return func;
+}
+
+void
+glmdAddVertex(float x, float y, float z)
+{
+
 }
 
 int 
@@ -110,3 +130,16 @@ hashCalculate(const char* key)
     return hash;
 }
 
+
+VertexBuffer
+createVertexBuffer(size_t initialCapacity)
+{
+    VertexBuffer vb;
+    glmd.gl.glGenBuffers(1,&vb.name);
+    glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,vb.name);
+    glmd.gl.glBufferData(GL_ARRAY_BUFFER,initialCapacity,NULL,GL_DYNAMIC_DRAW);
+    vb.capacity = initialCapacity;
+    vb.size = 0;
+    return vb;
+
+}
