@@ -18,7 +18,22 @@ typedef struct
 
 } Vertex3;
 
+typedef enum 
+{
+    GLMDOP_START_CMDLIST,
+    GLMDOP_END_CMDLIST,
+    GLMDOP_VTX3F
+} GLMDOP;
 
+typedef union
+{
+    GLMDOP opv;
+    float fv;
+    unsigned int uiv;
+    int iv;
+} GLMDParam;
+
+#define GLMDPARAM_VEC3(x, y, z) (GLMDParam){.fv = x}, (GLMDParam){.fv = y}, (GLMDParam){.fv = z} 
 
 
 void* glmdGetFuncAddr(const char*);
@@ -30,6 +45,7 @@ void glmdAddVertex(float, float, float);
 void glmdBeginVtxList(void);
 void glmdEndVtxList(void);
 void glmdDraw(void);
+void glmdCmd(GLMDParam*, size_t size);
 
 
 

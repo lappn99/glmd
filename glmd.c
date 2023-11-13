@@ -13,13 +13,14 @@
 
 const uint TRIANGLE_ELEMENT_SIZE = 3;
 
+
+
+//Hash table to cache addresses to intercepted functions
 typedef struct
 {
     size_t tableSize;
     void* funcArray[GLMD_FUNC_HASH_CAPACITY];
 } FunctionAddrTable;
-
-
 
 typedef struct 
 {
@@ -29,31 +30,38 @@ typedef struct
     Vertex3* vertices;
 } VertexBuffer;
 
+//GLMD State
 typedef struct
 {
-    GL gl;
-    VertexBuffer defaultVBO;
-    GLuint defaultProgram;
-    FunctionAddrTable funcCache;
+    int immediateExecution;
+    GL gl; //Loaded OpenGL Functions
+    VertexBuffer defaultVBO; //Default VBO when not overwritten (glCallLists?)
+    GLuint defaultProgram; //Used when no other lighting model specified
+    FunctionAddrTable funcCache; //Intercepted function hash table
 } GLMD;
 
+
+//Private/Implementation specific functions
 
 
 int hashKeyExists(size_t);
 void* hashGetValue(size_t);
 void hashSetValue(size_t, void*);
 size_t hashCalculate(const char*);
+void executeCmd(GLMDParam* params, size_t size);
+
 VertexBuffer createVertexBuffer(size_t);
 
-
-
 static GLMD glmd;
+
 
 void 
 glmdInit(void)
 {
+    //Set func hash table to point to NULL by default
     memset(glmd.funcCache.funcArray,0,sizeof(void*) * GLMD_FUNC_HASH_CAPACITY);
     glmd.gl.initialized = 0;
+    glmd.immediateExecution = 1;
     
 }
 
@@ -67,6 +75,9 @@ glmdCreateContext(void)
 void 
 glmdMakeContextCurrent(void)
 {
+    //Cant actually call OpenGL functions until the context is bound
+    //But this can be called even for just moving the window
+    //So only call this OpenGL init stuff once!
     if(!glmd.gl.initialized)
     {
         fprintf(stderr,"GLMD: Initializing GLMD OpenGL\n");
@@ -74,6 +85,7 @@ glmdMakeContextCurrent(void)
         glmd.defaultVBO = createVertexBuffer(3);
         glmd.gl.initialized = 1;
 
+        //Creating program/shaders
         GLuint vertexShader,fragmentShader;
         int success;
         char infoLog[512];
@@ -94,6 +106,7 @@ glmdMakeContextCurrent(void)
         glmd.gl.glShaderSource(fragmentShader,1,&GLMD_DEFAULT_FRAGMENT_SHADER,NULL);
         glmd.gl.glCompileShader(fragmentShader);
         glmd.gl.glGetShaderiv(fragmentShader,GL_COMPILE_STATUS,&success);
+
         if(!success)
         {
             fprintf(stderr,"Could not compile fragment shader\n");
@@ -106,6 +119,7 @@ glmdMakeContextCurrent(void)
 
         glmd.gl.glLinkProgram(glmd.defaultProgram);
         glmd.gl.glGetProgramiv(glmd.defaultProgram,GL_LINK_STATUS,&success);
+
         if(!success)
         {
             fprintf(stderr,"Could not link program\n");
@@ -118,6 +132,9 @@ glmdMakeContextCurrent(void)
 
 }
 
+//Get address of intercepted function
+//assumes that NAME is an intercepted function
+//TODO: Behave more generally 
 void*
 glmdGetFuncAddr(const char* name)
 {
@@ -125,6 +142,7 @@ glmdGetFuncAddr(const char* name)
     size_t hash = hashCalculate(name);
     if(!hashKeyExists(hash))
     {
+        //Get intercepted function address and store in hash table
         func = dlsym(RTLD_NEXT,name);
         fprintf(stderr,"GLMD: Caching %s at address %p\n",name,func);
         hashSetValue(hash,func);
@@ -136,34 +154,41 @@ glmdGetFuncAddr(const char* name)
     return func;
 }
 
+//Add vertex to current polygon/vertex list
 void
 glmdAddVertex(float x, float y, float z)
 {   
     if(glmd.defaultVBO.size >= glmd.defaultVBO.capacity)
     {
-        
+        //If no size, realloc to the next multiple of the amount of vertices needed for primitive (Triangle)
+        //TODO: Implement other primitives
         size_t remainder = (glmd.defaultVBO.capacity + 1) % TRIANGLE_ELEMENT_SIZE;
         size_t newSize = (glmd.defaultVBO.capacity + 1 + TRIANGLE_ELEMENT_SIZE - remainder) * sizeof(Vertex3);
         glmd.defaultVBO.vertices = realloc(glmd.defaultVBO.vertices, newSize * sizeof(Vertex3));
+        glmd.defaultVBO.capacity = newSize;
     }
 
     glmd.defaultVBO.vertices[glmd.defaultVBO.size++] = (Vertex3){.x = x, .y = y, .z = z};
 
 }   
 
+//Start vertex sequence
 void 
 glmdBeginVtxList(void)
 {
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
+    //Zero out buffer memory
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,0,NULL,GL_DYNAMIC_DRAW);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
 }
 
+//End vertex sequence
 void 
 glmdEndVtxList(void)
 {
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
 
+    //Send data to vertex buffer
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,
         sizeof(Vertex3) * glmd.defaultVBO.size,glmd.defaultVBO.vertices,GL_DYNAMIC_DRAW);
 
@@ -174,6 +199,7 @@ glmdEndVtxList(void)
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
 }
 
+//Draw to screen
 void
 glmdDraw(void)
 {
@@ -182,6 +208,47 @@ glmdDraw(void)
     glmd.gl.glDrawArrays(GL_TRIANGLES,0,3);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
     
+}
+
+void
+glmdCmd(GLMDParam* params, size_t size)
+{
+
+    if(glmd.immediateExecution)
+    {
+        executeCmd(params,size);
+    }
+    else
+    {
+        exit(1);
+    }
+}
+
+void 
+executeCmd(GLMDParam* params, size_t size)
+{
+    //NOOP
+    if(size == 0)
+    {
+        return;
+    }
+
+    GLMDOP op = params[0].opv;
+    switch(op)
+    {
+        case GLMDOP_START_CMDLIST:
+            glmdBeginVtxList();
+            break;
+        case GLMDOP_END_CMDLIST:
+            glmdEndVtxList();
+            break;
+        case GLMDOP_VTX3F:
+            glmdAddVertex(params[1].fv,params[2].fv,params[3].fv);
+            break;
+        
+    }
+
+
 }
 
 int 
@@ -232,7 +299,7 @@ createVertexBuffer(size_t initialCapacity)
     glmd.gl.glGenBuffers(1,&vb.name);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,vb.name);
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,initialCapacity,NULL,GL_DYNAMIC_DRAW);
-    vb.vertices = malloc(3 * sizeof(Vertex3));
+    vb.vertices = malloc(initialCapacity * sizeof(Vertex3));
     vb.capacity = initialCapacity;
     vb.size = 0;
     return vb;
