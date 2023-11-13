@@ -10,14 +10,24 @@ typedef void(*_glBegin)(GLenum);
 extern void
 glVertex3f(GLfloat x, GLfloat y, GLfloat z)
 {
-    _glVertex3fFunc newFunc = glmdGetFuncAddr("glVertex3f");
-    newFunc(x,y,z);
+    glmdAddVertex(x,y,z);
 }
 
 extern void
 glBegin(GLenum mode)
 {
-    _glBegin newFunc = glmdGetFuncAddr("glBegin");
-    newFunc(mode);
+    glmdBeginVtxList();
+}
+
+extern void
+glEnd(void)
+{
+    glmdEndVtxList();
+}
+
+extern void
+glFlush(void)
+{
+    
 }
 

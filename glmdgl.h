@@ -10,6 +10,7 @@ typedef struct GL
     PFNGLBINDBUFFERPROC glBindBuffer;
     PFNGLGENBUFFERSPROC glGenBuffers;
     PFNGLBUFFERDATAPROC glBufferData;
+    PFNGLDRAWARRAYSEXTPROC glDrawArrays;
 
 
 } GL;

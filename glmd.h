@@ -23,7 +23,11 @@ void glmdCreateContext(void);
 void glmdMakeContextCurrent(void);
 void glmdInit(void);
 
-void glmdAddVertex(float x, float y, float z);
+void glmdAddVertex(float, float, float);
+void glmdBeginVtxList(void);
+void glmdEndVtxList(void);
+void glmdDraw(void);
+
 
 
 

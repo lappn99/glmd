@@ -6,6 +6,8 @@
 #include "glmd.h"
 #include "glmdgl.h"
 
+const uint TRIANGLE_ELEMENT_SIZE = 3;
+
 typedef struct
 {
     size_t tableSize;
@@ -17,6 +19,7 @@ typedef struct
     GLuint name;
     size_t size;
     size_t capacity;
+    Vertex3* vertices;
 } VertexBuffer;
 
 typedef struct
@@ -85,8 +88,36 @@ glmdGetFuncAddr(const char* name)
 
 void
 glmdAddVertex(float x, float y, float z)
-{
+{   
+    if(glmd.defaultVBO.size >= glmd.defaultVBO.capacity)
+    {
+        
+        size_t remainder = (glmd.defaultVBO.capacity + 1) % TRIANGLE_ELEMENT_SIZE;
+        size_t newSize = (glmd.defaultVBO.capacity + 1 + TRIANGLE_ELEMENT_SIZE - remainder) * sizeof(Vertex3);
+        glmd.defaultVBO.vertices = realloc(glmd.defaultVBO.vertices, newSize * sizeof(Vertex3));
+    }
 
+    glmd.defaultVBO.vertices[glmd.defaultVBO.size++] = (Vertex3){.x = x, .y = y, .z = z};
+
+}   
+
+void 
+glmdBeginVtxList(void)
+{
+    glmd.gl.glBufferData(GL_ARRAY_BUFFER,0,NULL,GL_DYNAMIC_DRAW);
+}
+
+void 
+glmdEndVtxList(void)
+{
+    glmd.gl.glBufferData(GL_ARRAY_BUFFER,
+        sizeof(Vertex3) * glmd.defaultVBO.size,glmd.defaultVBO.vertices,GL_DYNAMIC_DRAW);
+}
+
+void
+glmdDraw(void)
+{
+    glmd.gl.glDrawArrays(GL_TRIANGLES,0,glmd.defaultVBO.size % TRIANGLE_ELEMENT_SIZE);
 }
 
 int 
@@ -137,6 +168,7 @@ createVertexBuffer(size_t initialCapacity)
     glmd.gl.glGenBuffers(1,&vb.name);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,vb.name);
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,initialCapacity,NULL,GL_DYNAMIC_DRAW);
+    vb.vertices = malloc(3 * sizeof(Vertex3));
     vb.capacity = initialCapacity;
     vb.size = 0;
     return vb;

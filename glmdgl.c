@@ -16,5 +16,6 @@ glmdInitGL(GL* gl)
     gl->glBindBuffer= dlsym(libgl,"glBindBuffer");
     gl->glGenBuffers= dlsym(libgl,"glGenBuffers");
     gl->glBufferData = dlsym(libgl,"glBufferData");
+    gl->glDrawArrays = dlsym(libgl,"glDrawArrays");
     
 }
