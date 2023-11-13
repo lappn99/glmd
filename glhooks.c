@@ -6,6 +6,9 @@
 typedef void(*_glVertex3fFunc)(GLfloat, GLfloat, GLfloat);
 typedef void(*_glBeginFunc)(GLenum);
 typedef void(*_glFlushFunc)(void);
+typedef GLuint (*_glGenListsFunc)(GLsizei);
+typedef void (*_glNewListFunc)(GLuint, GLenum);
+typedef void (*_glEndListFunc)(void);
 
 extern void
 glVertex3f(GLfloat x, GLfloat y, GLfloat z)
@@ -21,15 +24,16 @@ glVertex3f(GLfloat x, GLfloat y, GLfloat z)
 extern void
 glBegin(GLenum mode)
 {
-    GLMDParam params[1];
-    params[0].opv = GLMDOP_START_CMDLIST;
+    GLMDParam params[1] = { {.opv = GLMDOP_START_VTXLIST} };
+    
     glmdCmd(params,1);
 }
 
 extern void
 glEnd(void)
 {
-    glmdEndVtxList();
+    GLMDParam params[1] = { {.opv = GLMDOP_END_VTXLIST} };
+    glmdCmd(params,1);
 }
 
 extern void
@@ -38,6 +42,53 @@ glFlush(void)
     
     _glFlushFunc newFunc = glmdGetFuncAddr("glFlush");
     newFunc();
-    glmdDraw();
+    GLMDParam params[1] = { {.opv = GLMDOP_FLUSH } };
+    glmdCmd(params,1);
+    
 }
 
+extern GLuint
+glGenLists(GLsizei range)
+{
+    _glGenListsFunc newFunc = glmdGetFuncAddr("glGenLists");
+    GLuint result = newFunc(range);
+    GLMDParam params[2] = {
+        {.opv = GLMDOP_CREATE_CMDLIST},
+        {.uiv = result}
+    };
+
+    glmdCmd(params,2);
+    return result;
+}
+
+
+extern void
+glNewList(GLuint list, GLenum mode)
+{
+    
+    GLMDParam params[2] = {
+        {.opv = GLMDOP_START_CMDLIST},
+        {.uiv = list}
+    };
+    glmdCmd(params,2);
+
+}
+
+extern void
+glEndList(void)
+{
+    GLMDParam params[1] = {
+        {.opv = GLMDOP_END_CMDLIST}
+    };
+    glmdCmd(params,1);
+}
+
+extern void
+glCallList(GLuint name)
+{
+    GLMDParam params[2] = {
+        {.opv = GLMDOP_EXEC_CMDLIST},
+        {.uiv = name}
+    };
+    glmdCmd(params,2);
+}

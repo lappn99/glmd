@@ -1,18 +1,25 @@
 #include <stdio.h>
 #include <GL/glut.h>
 
+GLuint callList;
+
 void display(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT);
 	
+	glCallList(callList);
+	
+	glFlush();
+	glutSwapBuffers();
+}
+
+void triangle()
+{
 	glBegin(GL_TRIANGLES);
 		glVertex3f(0, 1, 0.0);
 		glVertex3f(-1, -1.0, 0.0);
 		glVertex3f(1, -1.0, 0);
 	glEnd();
-	
-	glFlush();
-	glutSwapBuffers();
 }
 
 int main(int argc, char** argv)
@@ -22,6 +29,12 @@ int main(int argc, char** argv)
 	glutInitWindowSize(300, 300);
 	glutInitWindowPosition(100, 100);
 	glutCreateWindow("Hello world");
+
+	callList = glGenLists(1);
+	glNewList(callList,GL_COMPILE);
+	triangle();
+	glEndList();
+
 	glutDisplayFunc(display);
 	glutMainLoop();
 	return 0;

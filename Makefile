@@ -1,5 +1,5 @@
 CC=gcc
-CCFLAGS=-c -Wall -Werror -fpic -Bsymbolic -ggdb
+CCFLAGS=-c -Wall -Werror -fpic -Bsymbolic -ggdb 
 LIBS=-ldl
 build: glmd.so
 
@@ -24,10 +24,10 @@ clean:
 
 
 example: build example.c
-	${CC} -lglut -lGL -o $@ example.c -ggdb
+	${CC} -fsanitize=address -lasan -lglut -lGL -o  $@ example.c -ggdb
 
 test: build example
-	LD_PRELOAD=${PWD}/glmd.so ./example
+	LD_PRELOAD=libasan.so:${PWD}/glmd.so ./example
 
 gears: build
 	LD_PRELOAD=${PWD}/glmd.so glxgears

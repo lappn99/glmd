@@ -1,4 +1,5 @@
 #include <dlfcn.h> //dlsym, RTLD_NEXT
+#include <errno.h>
 #include <GL/glx.h>
 #include <stdio.h>
 #include <stdlib.h> //malloc, realloc, free
@@ -38,6 +39,9 @@ typedef struct
     VertexBuffer defaultVBO; //Default VBO when not overwritten (glCallLists?)
     GLuint defaultProgram; //Used when no other lighting model specified
     FunctionAddrTable funcCache; //Intercepted function hash table
+    size_t numCommandLists;
+    GLMDCommandList* commandLists;
+    GLMDCommandList* currentCommandList;
 } GLMD;
 
 
@@ -48,12 +52,43 @@ int hashKeyExists(size_t);
 void* hashGetValue(size_t);
 void hashSetValue(size_t, void*);
 size_t hashCalculate(const char*);
-void executeCmd(GLMDParam* params, size_t size);
+size_t executeCmd(GLMDParam*);
+void addCommandList(GLMDCommandList);
+
+
 
 VertexBuffer createVertexBuffer(size_t);
 
 static GLMD glmd;
 
+void*
+glmdMalloc(size_t size)
+{
+    void* ptr = malloc(size);
+    if(ptr == NULL)
+    {
+        perror("malloc\n");
+        exit(1);
+    }
+    return ptr;
+}
+
+void*
+glmdRealloc(void* ptr, size_t newSize)
+{
+    void* newPtr = realloc(ptr,newSize);
+    if(newPtr == NULL && errno != 0)
+    {
+        perror("realloc\n");
+        exit(1);
+    }
+    return newPtr;
+}
+
+void glmdFree(void* ptr)
+{
+    free(ptr);
+}
 
 void 
 glmdInit(void)
@@ -164,7 +199,7 @@ glmdAddVertex(float x, float y, float z)
         //TODO: Implement other primitives
         size_t remainder = (glmd.defaultVBO.capacity + 1) % TRIANGLE_ELEMENT_SIZE;
         size_t newSize = (glmd.defaultVBO.capacity + 1 + TRIANGLE_ELEMENT_SIZE - remainder) * sizeof(Vertex3);
-        glmd.defaultVBO.vertices = realloc(glmd.defaultVBO.vertices, newSize * sizeof(Vertex3));
+        glmd.defaultVBO.vertices = glmdRealloc(glmd.defaultVBO.vertices, newSize * sizeof(Vertex3));
         glmd.defaultVBO.capacity = newSize;
     }
 
@@ -214,42 +249,156 @@ void
 glmdCmd(GLMDParam* params, size_t size)
 {
 
-    if(glmd.immediateExecution)
+    if(glmd.immediateExecution || params[0].opv == GLMDOP_END_CMDLIST)
     {
-        executeCmd(params,size);
+        executeCmd(params);
     }
     else
     {
-        exit(1);
+        if(glmd.currentCommandList == NULL)
+        {
+            fprintf(stderr,"GLMD: No command list bound");
+            exit(1);
+        }
+        GLMDCommandList* list = glmd.currentCommandList;
+        if(list->size == 0)
+        {
+           list->commands = glmdMalloc(sizeof(GLMDParam) * size );
+
+        }
+        else
+        {
+            list->commands = glmdRealloc(list->commands,sizeof(GLMDParam) * (size + list->size) );
+            memset(&(list->commands[list->size]),GLMDOP_NOP,sizeof(GLMDParam) * size);
+        }
+        for(int i = list->size; i < list->size + size;i++)
+        {
+            list->commands[i] = params[i - list->size];
+            
+        }
+        list->size += size;
+        
+        /*memcpy(&(list->commands[list->size]),params,sizeof(GLMDParam) * size);
+        list->size += size;*/
+        
+
+
     }
 }
 
+void
+glmdCreateCommandList(unsigned int name)
+{
+    GLMDCommandList list;
+    list.name = name;
+    list.size = 0;
+    addCommandList(list);
+
+    
+}
+
+void
+glmdStartCommandList(GLuint name)
+{
+    int i;
+    
+    for(i = 0; i < glmd.numCommandLists; i++)
+    {
+        if(glmd.commandLists[i].name == name)
+        {
+            glmd.currentCommandList = &(glmd.commandLists[i]);
+            glmd.immediateExecution = 0;
+        }
+    }
+
+}
 void 
-executeCmd(GLMDParam* params, size_t size)
+glmdEndCommandList(void)
+{
+    glmd.currentCommandList = NULL;
+    glmd.immediateExecution = 1;
+}
+
+void 
+glmdExecuteCommandList(unsigned int name)
+{
+    GLMDCommandList* list;
+    int i;
+    for(i = 0; i < glmd.numCommandLists; i++)
+    {
+        if(glmd.commandLists[i].name == name)
+        {
+            list = &(glmd.commandLists[i]);
+            
+        }
+    }
+    if(list == NULL)
+    {
+        fprintf(stderr,"GLMD: List not found: %u", name);
+        exit(1);
+    }
+    GLMDParam* currentParam;
+    currentParam = &list->commands[0];
+    for(size_t i = 0; i < list->size;i+=executeCmd(currentParam))
+    {
+        currentParam = &(list->commands[i]);
+    }
+   
+    
+    
+}
+
+size_t 
+executeCmd(GLMDParam* params)
 {
     //NOOP
-    if(size == 0)
+    if(params == NULL)
     {
-        return;
+        return 0;
     }
 
     GLMDOP op = params[0].opv;
+    size_t cmdSize = 1;
     switch(op)
     {
-        case GLMDOP_START_CMDLIST:
+        case GLMDOP_START_VTXLIST:
             glmdBeginVtxList();
             break;
-        case GLMDOP_END_CMDLIST:
+        case GLMDOP_END_VTXLIST:
             glmdEndVtxList();
             break;
         case GLMDOP_VTX3F:
             glmdAddVertex(params[1].fv,params[2].fv,params[3].fv);
+            cmdSize += 3;
             break;
+        case GLMDOP_FLUSH:
+            glmdDraw();
+            
+            break;
+        case GLMDOP_CREATE_CMDLIST:
+            glmdCreateCommandList(params[1].uiv);
+            cmdSize += 1;
+            break;
+        case GLMDOP_START_CMDLIST:
+            glmdStartCommandList(params[1].uiv);
+            cmdSize += 1;
+            break;
+        case GLMDOP_END_CMDLIST:
+            glmdEndCommandList();
+            cmdSize += 1;
+            break;
+        case GLMDOP_EXEC_CMDLIST:
+            glmdExecuteCommandList(params[1].uiv);
+            cmdSize += 1;
+            break;
+        case GLMDOP_NOP: break;
         
     }
+    return cmdSize;
 
 
 }
+
 
 int 
 hashKeyExists(size_t hash)
@@ -299,9 +448,19 @@ createVertexBuffer(size_t initialCapacity)
     glmd.gl.glGenBuffers(1,&vb.name);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,vb.name);
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,initialCapacity,NULL,GL_DYNAMIC_DRAW);
-    vb.vertices = malloc(initialCapacity * sizeof(Vertex3));
+    vb.vertices = glmdMalloc(initialCapacity * sizeof(Vertex3));
     vb.capacity = initialCapacity;
     vb.size = 0;
     return vb;
 
+}
+
+void
+addCommandList(GLMDCommandList list)
+{
+    if(glmd.numCommandLists == 0)
+    {
+        glmd.commandLists = glmdMalloc(sizeof(GLMDCommandList));
+    }
+    glmd.commandLists[glmd.numCommandLists++] = list;
 }
