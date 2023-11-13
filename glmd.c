@@ -6,6 +6,11 @@
 #include "glmd.h"
 #include "glmdgl.h"
 
+#ifndef GLMD_RES_HEADER
+#define GLMD_RES_HEADER "glmdresources.h"
+#include GLMD_RES_HEADER
+#endif
+
 const uint TRIANGLE_ELEMENT_SIZE = 3;
 
 typedef struct
@@ -13,6 +18,8 @@ typedef struct
     size_t tableSize;
     void* funcArray[GLMD_FUNC_HASH_CAPACITY];
 } FunctionAddrTable;
+
+
 
 typedef struct 
 {
@@ -26,6 +33,7 @@ typedef struct
 {
     GL gl;
     VertexBuffer defaultVBO;
+    GLuint defaultProgram;
     FunctionAddrTable funcCache;
 } GLMD;
 
@@ -35,8 +43,9 @@ int hashKeyExists(size_t);
 void* hashGetValue(size_t);
 void hashSetValue(size_t, void*);
 size_t hashCalculate(const char*);
-
 VertexBuffer createVertexBuffer(size_t);
+
+
 
 static GLMD glmd;
 
@@ -64,6 +73,47 @@ glmdMakeContextCurrent(void)
         glmdInitGL(&glmd.gl);
         glmd.defaultVBO = createVertexBuffer(3);
         glmd.gl.initialized = 1;
+
+        GLuint vertexShader,fragmentShader;
+        int success;
+        char infoLog[512];
+        (void)infoLog;
+        vertexShader = glmd.gl.glCreateShader(GL_VERTEX_SHADER);
+        glmd.gl.glShaderSource(vertexShader,1,&GLMD_DEFAULT_VERTEX_SHADER,NULL);
+        glmd.gl.glCompileShader(vertexShader);
+        glmd.gl.glGetShaderiv(vertexShader,GL_COMPILE_STATUS,&success);
+
+        if(!success)
+        {
+            fprintf(stderr,"Could not compile vertex shader\n");
+            exit(1);
+        }
+
+
+        fragmentShader = glmd.gl.glCreateShader(GL_FRAGMENT_SHADER);
+        glmd.gl.glShaderSource(fragmentShader,1,&GLMD_DEFAULT_FRAGMENT_SHADER,NULL);
+        glmd.gl.glCompileShader(fragmentShader);
+        glmd.gl.glGetShaderiv(fragmentShader,GL_COMPILE_STATUS,&success);
+        if(!success)
+        {
+            fprintf(stderr,"Could not compile fragment shader\n");
+            exit(1);
+        }
+
+        glmd.defaultProgram = glmd.gl.glCreateProgram();
+        glmd.gl.glAttachShader(glmd.defaultProgram,vertexShader);
+        glmd.gl.glAttachShader(glmd.defaultProgram,fragmentShader);
+
+        glmd.gl.glLinkProgram(glmd.defaultProgram);
+        glmd.gl.glGetProgramiv(glmd.defaultProgram,GL_LINK_STATUS,&success);
+        if(!success)
+        {
+            fprintf(stderr,"Could not link program\n");
+        }
+        glmd.gl.glUseProgram(glmd.defaultProgram);
+
+        glmd.gl.glDeleteShader(vertexShader);
+        glmd.gl.glDeleteShader(fragmentShader);
     }
 
 }
@@ -104,20 +154,34 @@ glmdAddVertex(float x, float y, float z)
 void 
 glmdBeginVtxList(void)
 {
+    glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,0,NULL,GL_DYNAMIC_DRAW);
+    glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
 }
 
 void 
 glmdEndVtxList(void)
 {
+    glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
+
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,
         sizeof(Vertex3) * glmd.defaultVBO.size,glmd.defaultVBO.vertices,GL_DYNAMIC_DRAW);
+
+    glmd.gl.glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,3 * sizeof(float),(void*)0);
+    glmd.gl.glEnableVertexAttribArray(0);
+
+    glmd.defaultVBO.size = 0;
+    glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
 }
 
 void
 glmdDraw(void)
 {
-    glmd.gl.glDrawArrays(GL_TRIANGLES,0,glmd.defaultVBO.size % TRIANGLE_ELEMENT_SIZE);
+    glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
+    glmd.gl.glUseProgram(glmd.defaultProgram);
+    glmd.gl.glDrawArrays(GL_TRIANGLES,0,3);
+    glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
+    
 }
 
 int 

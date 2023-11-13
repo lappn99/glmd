@@ -4,16 +4,35 @@
 
 
 
+
+
 typedef struct GL
 {   
-    int initialized;
-    PFNGLBINDBUFFERPROC glBindBuffer;
-    PFNGLGENBUFFERSPROC glGenBuffers;
-    PFNGLBUFFERDATAPROC glBufferData;
-    PFNGLDRAWARRAYSEXTPROC glDrawArrays;
+    
+    PFNGLBINDBUFFERPROC                 glBindBuffer;
+    PFNGLGENBUFFERSPROC                 glGenBuffers;
+    PFNGLBUFFERDATAPROC                 glBufferData;
+    PFNGLDRAWARRAYSEXTPROC              glDrawArrays;
+    PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
+    PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
+    PFNGLCREATESHADERPROC               glCreateShader;
+    PFNGLDELETESHADERPROC               glDeleteShader;
+    PFNGLLINKPROGRAMPROC                glLinkProgram;
+    PFNGLUSEPROGRAMPROC                 glUseProgram;
+    PFNGLATTACHSHADERPROC               glAttachShader;
+    PFNGLSHADERSOURCEPROC               glShaderSource;
+    PFNGLCOMPILESHADERPROC              glCompileShader;
+    PFNGLCREATEPROGRAMPROC              glCreateProgram;
+    PFNGLGETSHADERIVPROC                glGetShaderiv;
+    PFNGLGETPROGRAMIVPROC               glGetProgramiv;
 
+
+
+    int initialized;
 
 } GL;
+
+
 
 void glmdInitGL(GL* gl);
 

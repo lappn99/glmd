@@ -18,6 +18,9 @@ typedef struct
 
 } Vertex3;
 
+
+
+
 void* glmdGetFuncAddr(const char*);
 void glmdCreateContext(void);
 void glmdMakeContextCurrent(void);

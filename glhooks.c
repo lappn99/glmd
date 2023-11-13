@@ -4,8 +4,8 @@
 #include "glmd.h"
 
 typedef void(*_glVertex3fFunc)(GLfloat, GLfloat, GLfloat);
-typedef void(*_glBegin)(GLenum);
-
+typedef void(*_glBeginFunc)(GLenum);
+typedef void(*_glFlushFunc)(void);
 
 extern void
 glVertex3f(GLfloat x, GLfloat y, GLfloat z)
@@ -29,5 +29,8 @@ extern void
 glFlush(void)
 {
     
+    _glFlushFunc newFunc = glmdGetFuncAddr("glFlush");
+    newFunc();
+    glmdDraw();
 }
 
