@@ -1,13 +1,17 @@
 CC=gcc
-CCFLAGS=-c -Wall -Werror -fpic -Bsymbolic -ggdb 
+CCFLAGS=-c -Wall -Werror -fpic -Bsymbolic -ggdb
 LIBS=-ldl
+LDFLAGS=-shared
+OBJS=glmd.o glxhooks.o glhooks.o glmdgl.o
+
+
 build: glmd.so
 
 %.o : %.c
 	${CC} ${CCFLAGS} ${LIBS} $< -D_GNU_SOURCE 
 
-glmd.so : glmd.o glxhooks.o glhooks.o glmdgl.o
-	${CC} -shared -o $@ $^ 
+glmd.so : ${OBJS}
+	${CC} ${LDFLAGS} -o $@ $^ 
 
 install: build
 	cp ./glmd.so /usr/lib
@@ -15,11 +19,8 @@ install: build
 
 clean:
 	export LD_PRELOAD=
-	rm -f glmd.o
+	rm -f ${OBJS}
 	rm -f glmd.so
-	rm -f glxhooks.o
-	rm -f glhooks.o
-	rm -f glmdgl.o
 	rm -f ./example
 
 

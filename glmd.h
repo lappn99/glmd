@@ -3,6 +3,7 @@
 
 #define GLMD_FUNC_HASH_CAPACITY 32
 
+
 typedef struct
 {
     union
@@ -46,7 +47,7 @@ typedef struct
     GLMDParam* commands;
 } GLMDCommandList;
 
-#define GLMDPARAM_VEC3(x, y, z) (GLMDParam){.fv = x}, (GLMDParam){.fv = y}, (GLMDParam){.fv = z} 
+
 
 
 void* glmdMalloc(size_t);
