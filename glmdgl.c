@@ -54,8 +54,13 @@ glmdInitGL(GL* gl)
     REGISTER_GL_FUNC(glCompileShader);
     REGISTER_GL_FUNC(glGetShaderiv);
     REGISTER_GL_FUNC(glGetProgramiv);
+    REGISTER_GL_FUNC(glGetStringi);
+
+    GLint numExtensions = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+
+    
     
 
 }
-
 

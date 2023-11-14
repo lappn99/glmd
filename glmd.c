@@ -13,6 +13,7 @@
 #endif
 
 const uint TRIANGLE_ELEMENT_SIZE = 3;
+const uint QUAD_ELEMENT_SIZE = 4;
 
 
 
@@ -28,7 +29,9 @@ typedef struct
     GLuint name;
     size_t size;
     size_t capacity;
+    uint primitiveSize;
     Vertex3* vertices;
+    
 } VertexBuffer;
 
 //GLMD State
@@ -42,6 +45,7 @@ typedef struct
     size_t numCommandLists;
     GLMDCommandList* commandLists;
     GLMDCommandList* currentCommandList;
+    
 } GLMD;
 
 
@@ -85,7 +89,8 @@ glmdRealloc(void* ptr, size_t newSize)
     return newPtr;
 }
 
-void glmdFree(void* ptr)
+void 
+glmdFree(void* ptr)
 {
     free(ptr);
 }
@@ -197,9 +202,9 @@ glmdAddVertex(float x, float y, float z)
     {
         //If no size, realloc to the next multiple of the amount of vertices needed for primitive (Triangle)
         //TODO: Implement other primitives
-        size_t remainder = (glmd.defaultVBO.capacity + 1) % TRIANGLE_ELEMENT_SIZE;
-        size_t newSize = (glmd.defaultVBO.capacity + 1 + TRIANGLE_ELEMENT_SIZE - remainder) * sizeof(Vertex3);
-        glmd.defaultVBO.vertices = glmdRealloc(glmd.defaultVBO.vertices, newSize * sizeof(Vertex3));
+        size_t remainder = (glmd.defaultVBO.capacity + 1) % glmd.defaultVBO.primitiveSize;
+        size_t newSize = (glmd.defaultVBO.capacity + 1 + glmd.defaultVBO.primitiveSize - remainder) * sizeof(Vertex3);
+        glmd.defaultVBO.vertices = glmdRealloc(glmd.defaultVBO.vertices, newSize );
         glmd.defaultVBO.capacity = newSize;
     }
 
@@ -230,7 +235,7 @@ glmdEndVtxList(void)
     glmd.gl.glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,3 * sizeof(float),(void*)0);
     glmd.gl.glEnableVertexAttribArray(0);
 
-    glmd.defaultVBO.size = 0;
+    
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
 }
 
@@ -240,8 +245,9 @@ glmdDraw(void)
 {
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
     glmd.gl.glUseProgram(glmd.defaultProgram);
-    glmd.gl.glDrawArrays(GL_TRIANGLES,0,3);
+    glmd.gl.glDrawArrays(GL_TRIANGLES,0,glmd.defaultVBO.size);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
+    glmd.defaultVBO.size = 0;
     
 }
 
@@ -269,17 +275,10 @@ glmdCmd(GLMDParam* params, size_t size)
         else
         {
             list->commands = glmdRealloc(list->commands,sizeof(GLMDParam) * (size + list->size) );
-            memset(&(list->commands[list->size]),GLMDOP_NOP,sizeof(GLMDParam) * size);
-        }
-        for(int i = list->size; i < list->size + size;i++)
-        {
-            list->commands[i] = params[i - list->size];
             
-        }
+        }        
+        memcpy(&(list->commands[list->size]),params,sizeof(GLMDParam) * size);
         list->size += size;
-        
-        /*memcpy(&(list->commands[list->size]),params,sizeof(GLMDParam) * size);
-        list->size += size;*/
         
 
 
@@ -351,7 +350,7 @@ glmdExecuteCommandList(unsigned int name)
 size_t 
 executeCmd(GLMDParam* params)
 {
-    //NOOP
+
     if(params == NULL)
     {
         return 0;
@@ -373,7 +372,6 @@ executeCmd(GLMDParam* params)
             break;
         case GLMDOP_FLUSH:
             glmdDraw();
-            
             break;
         case GLMDOP_CREATE_CMDLIST:
             glmdCreateCommandList(params[1].uiv);
@@ -450,6 +448,7 @@ createVertexBuffer(size_t initialCapacity)
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,initialCapacity,NULL,GL_DYNAMIC_DRAW);
     vb.vertices = glmdMalloc(initialCapacity * sizeof(Vertex3));
     vb.capacity = initialCapacity;
+    vb.primitiveSize = TRIANGLE_ELEMENT_SIZE;
     vb.size = 0;
     return vb;
 

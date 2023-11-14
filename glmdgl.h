@@ -13,6 +13,7 @@ typedef struct GL
     PFNGLGENBUFFERSPROC                 glGenBuffers;
     PFNGLBUFFERDATAPROC                 glBufferData;
     PFNGLDRAWARRAYSEXTPROC              glDrawArrays;
+    PFNGLDRAWARRAYSINDIRECTPROC         glDrawArraysIndirect;
     PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
     PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
     PFNGLCREATESHADERPROC               glCreateShader;
@@ -25,6 +26,9 @@ typedef struct GL
     PFNGLCREATEPROGRAMPROC              glCreateProgram;
     PFNGLGETSHADERIVPROC                glGetShaderiv;
     PFNGLGETPROGRAMIVPROC               glGetProgramiv;
+    PFNGLGETSTRINGIPROC                 glGetStringi;
+
+
 
 
 
@@ -32,8 +36,17 @@ typedef struct GL
 
 } GL;
 
+typedef struct
+{
+    GLuint count;
+    GLuint instanceCount;
+    GLuint first;
+    GLuint baseInstance;
+} DrawArraysIndirectCommand;
+
 
 
 void glmdInitGL(GL* gl);
+
 
 #endif //_GLMDGL_H
