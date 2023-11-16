@@ -4,6 +4,8 @@
 #define GLMD_FUNC_HASH_CAPACITY 32
 
 
+
+
 typedef struct
 {
     union
@@ -25,6 +27,7 @@ typedef enum
     GLMDOP_END_VTXLIST,
     GLMDOP_VTX3F,
     GLMDOP_FLUSH,
+    GLMDOP_DRAW,
     GLMDOP_CREATE_CMDLIST,
     GLMDOP_START_CMDLIST,
     GLMDOP_END_CMDLIST,
@@ -42,6 +45,7 @@ typedef union
 
 typedef struct
 {   
+    
     unsigned int name;
     size_t size;
     GLMDParam* commands;
@@ -58,9 +62,10 @@ void* glmdGetFuncAddr(const char*);
 void glmdCreateContext(void);
 void glmdMakeContextCurrent(void);
 void glmdInit(void);
+void glmdDeinit(void);
 
 void glmdAddVertex(float, float, float);
-void glmdBeginVtxList(void);
+void glmdBeginVtxList(unsigned int);
 void glmdEndVtxList(void);
 void glmdDraw(void);
 void glmdCreateCommandList(unsigned int);

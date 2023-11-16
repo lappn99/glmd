@@ -12,7 +12,7 @@ typedef Bool (*_glXMakeContextCurrentFunc)(Display*, GLXDrawable, GLXDrawable, G
 typedef GLXContext (*_glXCreateContextFunc)(Display*, XVisualInfo*, GLXContext, Bool);
 typedef GLXContext (*_glXCreateNewContextFunc)(Display*, GLXFBConfig,int , GLXContext, Bool);
 typedef glxFuncPointer (*_glXGetProcAddressFunc)(const GLubyte*);
-
+typedef void (*_glXDestroyContextFunc)(Display*, GLXContext);
 
 extern Bool 
 glXMakeCurrent(Display* dsp, GLXDrawable draw, GLXContext ctx)
@@ -65,5 +65,14 @@ glXGetProcAddress(const GLubyte* name)
 {
     _glXGetProcAddressFunc newFunc = glmdGetFuncAddr("glXGetProcAddress");
     return newFunc(name);
+
+}
+
+extern void
+glXDestroyContext(Display* dsp, GLXContext ctx)
+{
+    _glXDestroyContextFunc newFunc = glmdGetFuncAddr("glXDestroyContext");
+    glmdDeinit();
+    return newFunc(dsp, ctx);
 
 }

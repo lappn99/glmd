@@ -24,16 +24,22 @@ glVertex3f(GLfloat x, GLfloat y, GLfloat z)
 extern void
 glBegin(GLenum mode)
 {
-    GLMDParam params[1] = { {.opv = GLMDOP_START_VTXLIST} };
+    GLMDParam params[2] = { 
+        {.opv = GLMDOP_START_VTXLIST},
+        {.uiv = mode}
+    };
     
-    glmdCmd(params,1);
+    glmdCmd(params,2);
 }
 
 extern void
 glEnd(void)
 {
-    GLMDParam params[1] = { {.opv = GLMDOP_END_VTXLIST} };
+    GLMDParam params[2] = { {.opv = GLMDOP_END_VTXLIST},{.opv = GLMDOP_DRAW} };
     glmdCmd(params,1);
+    glmdCmd(&params[1],1);
+    
+    
 }
 
 extern void

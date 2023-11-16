@@ -12,8 +12,8 @@
 #include GLMD_RES_HEADER
 #endif
 
-const uint TRIANGLE_ELEMENT_SIZE = 3;
-const uint QUAD_ELEMENT_SIZE = 4;
+const unsigned int TRIANGLE_ELEMENT_SIZE = 3;
+const unsigned int QUAD_ELEMENT_SIZE = 4;
 
 
 
@@ -24,12 +24,14 @@ typedef struct
     void* funcArray[GLMD_FUNC_HASH_CAPACITY];
 } FunctionAddrTable;
 
+
+
 typedef struct 
 {
     GLuint name;
     size_t size;
     size_t capacity;
-    uint primitiveSize;
+    GLenum primitiveType;
     Vertex3* vertices;
     
 } VertexBuffer;
@@ -49,6 +51,7 @@ typedef struct
 } GLMD;
 
 
+
 //Private/Implementation specific functions
 
 
@@ -58,7 +61,7 @@ void hashSetValue(size_t, void*);
 size_t hashCalculate(const char*);
 size_t executeCmd(GLMDParam*);
 void addCommandList(GLMDCommandList);
-
+unsigned int primitiveTypeSize(GLenum type);
 
 
 VertexBuffer createVertexBuffer(size_t);
@@ -102,14 +105,24 @@ glmdInit(void)
     memset(glmd.funcCache.funcArray,0,sizeof(void*) * GLMD_FUNC_HASH_CAPACITY);
     glmd.gl.initialized = 0;
     glmd.immediateExecution = 1;
-    
+        		    	    
 }
+void glmdDeinit(void)
+{
+    int i = 0;
+    glmdFree(glmd.defaultVBO.vertices);
+    for(i = 0; i < glmd.numCommandLists; i++)
+    {
+        glmdFree(glmd.commandLists[i].commands);
+    }
 
+}
 void
 glmdCreateContext(void)
 {
     glmdInit();
     fprintf(stderr,"GLMD Create context\n");
+    
 }
 
 void 
@@ -122,7 +135,7 @@ glmdMakeContextCurrent(void)
     {
         fprintf(stderr,"GLMD: Initializing GLMD OpenGL\n");
         glmdInitGL(&glmd.gl);
-        glmd.defaultVBO = createVertexBuffer(3);
+        glmd.defaultVBO = createVertexBuffer(0);
         glmd.gl.initialized = 1;
 
         //Creating program/shaders
@@ -200,11 +213,20 @@ glmdAddVertex(float x, float y, float z)
 {   
     if(glmd.defaultVBO.size >= glmd.defaultVBO.capacity)
     {
+        unsigned int primitiveSize = primitiveTypeSize(glmd.defaultVBO.primitiveType);
         //If no size, realloc to the next multiple of the amount of vertices needed for primitive (Triangle)
         //TODO: Implement other primitives
-        size_t remainder = (glmd.defaultVBO.capacity + 1) % glmd.defaultVBO.primitiveSize;
-        size_t newSize = (glmd.defaultVBO.capacity + 1 + glmd.defaultVBO.primitiveSize - remainder) * sizeof(Vertex3);
-        glmd.defaultVBO.vertices = glmdRealloc(glmd.defaultVBO.vertices, newSize );
+        size_t remainder = (glmd.defaultVBO.capacity + 1) % primitiveSize;
+        size_t newSize = (glmd.defaultVBO.capacity + 1 + primitiveSize - remainder) * sizeof(Vertex3);
+        if(glmd.defaultVBO.vertices == NULL)
+        {
+            glmd.defaultVBO.vertices = glmdMalloc(newSize);
+        }
+        else
+        {
+            glmd.defaultVBO.vertices = glmdRealloc(glmd.defaultVBO.vertices, newSize );
+        }
+        
         glmd.defaultVBO.capacity = newSize;
     }
 
@@ -214,8 +236,9 @@ glmdAddVertex(float x, float y, float z)
 
 //Start vertex sequence
 void 
-glmdBeginVtxList(void)
+glmdBeginVtxList(unsigned int primitiveType)
 {
+    glmd.defaultVBO.primitiveType = primitiveType;
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
     //Zero out buffer memory
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,0,NULL,GL_DYNAMIC_DRAW);
@@ -237,6 +260,7 @@ glmdEndVtxList(void)
 
     
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
+    
 }
 
 //Draw to screen
@@ -245,7 +269,7 @@ glmdDraw(void)
 {
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,glmd.defaultVBO.name);
     glmd.gl.glUseProgram(glmd.defaultProgram);
-    glmd.gl.glDrawArrays(GL_TRIANGLES,0,glmd.defaultVBO.size);
+    glmd.gl.glDrawArrays(glmd.defaultVBO.primitiveType,0,glmd.defaultVBO.size);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,0);
     glmd.defaultVBO.size = 0;
     
@@ -361,7 +385,8 @@ executeCmd(GLMDParam* params)
     switch(op)
     {
         case GLMDOP_START_VTXLIST:
-            glmdBeginVtxList();
+            glmdBeginVtxList(params[1].uiv);
+            cmdSize += 1;
             break;
         case GLMDOP_END_VTXLIST:
             glmdEndVtxList();
@@ -370,7 +395,7 @@ executeCmd(GLMDParam* params)
             glmdAddVertex(params[1].fv,params[2].fv,params[3].fv);
             cmdSize += 3;
             break;
-        case GLMDOP_FLUSH:
+        case GLMDOP_DRAW:
             glmdDraw();
             break;
         case GLMDOP_CREATE_CMDLIST:
@@ -389,6 +414,7 @@ executeCmd(GLMDParam* params)
             glmdExecuteCommandList(params[1].uiv);
             cmdSize += 1;
             break;
+        case GLMDOP_FLUSH: break;
         case GLMDOP_NOP: break;
         
     }
@@ -446,9 +472,9 @@ createVertexBuffer(size_t initialCapacity)
     glmd.gl.glGenBuffers(1,&vb.name);
     glmd.gl.glBindBuffer(GL_ARRAY_BUFFER,vb.name);
     glmd.gl.glBufferData(GL_ARRAY_BUFFER,initialCapacity,NULL,GL_DYNAMIC_DRAW);
-    vb.vertices = glmdMalloc(initialCapacity * sizeof(Vertex3));
+    vb.vertices = NULL;
+    //vb.vertices = glmdMalloc(initialCapacity * sizeof(Vertex3));
     vb.capacity = initialCapacity;
-    vb.primitiveSize = TRIANGLE_ELEMENT_SIZE;
     vb.size = 0;
     return vb;
 
@@ -462,4 +488,24 @@ addCommandList(GLMDCommandList list)
         glmd.commandLists = glmdMalloc(sizeof(GLMDCommandList));
     }
     glmd.commandLists[glmd.numCommandLists++] = list;
+}
+
+
+unsigned int 
+primitiveTypeSize(GLenum type)
+{
+    switch(type)
+    {
+        case GL_TRIANGLES:
+            return 3;
+            break;
+
+        case GL_QUADS:
+            return 4;
+            break;
+
+        default:
+            return 0;
+    }
+
 }
